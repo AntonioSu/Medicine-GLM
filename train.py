@@ -3,7 +3,7 @@ from peft import LoraConfig, get_peft_model, TaskType
 from transformers import AutoTokenizer, AutoModel, TrainingArguments, Trainer
 import torch
 from datasets import load_dataset, DatasetDict, Dataset
-
+from ExtendTrainer import Trainer
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -193,21 +193,9 @@ training_args = TrainingArguments(
     dataloader_pin_memory=False
 )
 
-
-class ModifiedTrainer(Trainer):
-
-    def compute_loss(self, model, inputs, return_outputs=False):
-        return model(
-            input_ids=inputs["input_ids"],
-            attention_mask=inputs["attention_mask"],
-            position_ids=inputs["position_ids"],
-            labels=inputs["labels"],
-        ).loss
-
-
 train_dataset = QADataset(raw_datasets['train'], tokenizer=tokenizer)
 
-trainer = ModifiedTrainer(
+trainer = Trainer(
     model=model,
     train_dataset=train_dataset,
     args=training_args,
@@ -216,16 +204,3 @@ trainer = ModifiedTrainer(
 )
 
 trainer.train()
-
-
-# 保存模型
-def save_tuned_parameters(model, path):
-    saved_params = {
-        k: v.to(device)
-        for k, v in model.named_parameters()
-        if v.requires_grad
-    }
-    torch.save(saved_params, path)
-
-
-save_tuned_parameters(model, os.path.join("output", "medicine-glm-lora.pt"))
